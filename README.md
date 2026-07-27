@@ -4,7 +4,7 @@ An opensource, native macOS dynamic island for local AI coding agents.
 
 Notch Agents watches agent sessions automatically with their current status, displays local rate-limit window, and jumps back to the originating terminal or app. Event data stays on the Mac and the hook bridge listens only on `127.0.0.1`.
 
-The first public release is `v0.1.0`.
+The latest release is [**Notch Agents v0.1.1**](https://github.com/ishaanko/notch-agents/releases/tag/v0.1.1).
 
 ## Hook bridge
 
