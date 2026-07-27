@@ -5,6 +5,12 @@ enum AppMotionPolicy {
     static let animationFPSPreferenceKey = "notchAgents.animationFPS"
     static let contentCrossfadeDuration: TimeInterval = 0.14
 
+    static func normalizePreferences(_ defaults: UserDefaults = .standard) {
+        if defaults.integer(forKey: animationFPSPreferenceKey) > 60 {
+            defaults.set(60, forKey: animationFPSPreferenceKey)
+        }
+    }
+
     static func reducesMotion(
         systemPreference: Bool,
         animationFPS: Int
@@ -17,21 +23,10 @@ private struct NotchReduceMotionEnvironmentKey: EnvironmentKey {
     static let defaultValue = false
 }
 
-private struct NotchAnimationActiveEnvironmentKey: EnvironmentKey {
-    static let defaultValue = true
-}
-
 extension EnvironmentValues {
     var notchReduceMotion: Bool {
         get { self[NotchReduceMotionEnvironmentKey.self] }
         set { self[NotchReduceMotionEnvironmentKey.self] = newValue }
-    }
-
-    /// Hidden notch content remains mounted during the interruptible size
-    /// transition. Pause its timelines once it is fully out of view.
-    var notchAnimationActive: Bool {
-        get { self[NotchAnimationActiveEnvironmentKey.self] }
-        set { self[NotchAnimationActiveEnvironmentKey.self] = newValue }
     }
 }
 
@@ -278,6 +273,7 @@ enum BrandIconResolver {
         case .claude: "anthropic"
         case .antigravity: "antigravity"
         case .cursor: "cursor"
+        case .opencode: "opencode"
         case .warp: "warp"
         default: nil
         }
@@ -288,18 +284,24 @@ enum BrandIconResolver {
         let packagedBundle = Bundle.main.resourceURL
             .map { $0.appendingPathComponent("NotchAgents_NotchAgents.bundle") }
             .flatMap(Bundle.init(url:))
-        return packagedBundle?.url(
-            forResource: name,
-            withExtension: "svg",
-            subdirectory: "Brands"
-        )
-            ?? packagedBundle?.url(forResource: name, withExtension: "svg")
-            ?? Bundle.module.url(
+        for fileExtension in ["svg", "png"] {
+            if let url = packagedBundle?.url(
                 forResource: name,
-                withExtension: "svg",
+                withExtension: fileExtension,
                 subdirectory: "Brands"
             )
-            ?? Bundle.module.url(forResource: name, withExtension: "svg")
+                ?? packagedBundle?.url(forResource: name, withExtension: fileExtension)
+                ?? Bundle.module.url(
+                    forResource: name,
+                    withExtension: fileExtension,
+                    subdirectory: "Brands"
+                )
+                ?? Bundle.module.url(forResource: name, withExtension: fileExtension)
+            {
+                return url
+            }
+        }
+        return nil
     }
 
     private static func bundleIdentifiers(for agent: AgentKind) -> [String] {
@@ -332,7 +334,7 @@ struct AgentBrandIcon: View {
                 Image(nsImage: image)
                     .resizable()
                     .renderingMode(image.isTemplate ? .template : .original)
-                    .interpolation(.high)
+                    .interpolation(agent == .opencode ? .none : .high)
                     .scaledToFit()
             } else {
                 ZStack {

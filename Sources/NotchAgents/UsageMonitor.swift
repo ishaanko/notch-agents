@@ -84,10 +84,10 @@ final class UsageMonitor: ObservableObject {
 
     init() {
         refresh()
-        timer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
+        timer = Timer.scheduledTimer(withTimeInterval: 300, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.refresh() }
         }
-        timer?.tolerance = 10
+        timer?.tolerance = 60
     }
 
     func refresh() {

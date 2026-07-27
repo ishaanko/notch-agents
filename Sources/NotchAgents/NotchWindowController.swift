@@ -441,14 +441,14 @@ final class SettingsWindowController: NSWindowController {
         updates: UpdateManager
     ) {
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 840, height: 590),
+            contentRect: NSRect(x: 0, y: 0, width: 800, height: 550),
             styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
             backing: .buffered,
             defer: false
         )
         window.title = "Notch Agents Settings"
         window.titlebarAppearsTransparent = true
-        window.minSize = NSSize(width: 760, height: 520)
+        window.minSize = NSSize(width: 720, height: 500)
         window.contentView = NSHostingView(
             rootView: SettingsView(
                 integrations: integrations,

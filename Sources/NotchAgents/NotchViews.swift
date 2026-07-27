@@ -2,54 +2,18 @@ import AppKit
 import SwiftUI
 
 struct CompactSessionSummary: Equatable, Sendable {
-    var active: Int
-    var approvals: Int
-    var questions: Int
-    var failures: Int
+    var sessionCount: Int
 
-    init(
-        active: Int = 0,
-        approvals: Int = 0,
-        questions: Int = 0,
-        failures: Int = 0
-    ) {
-        self.active = active
-        self.approvals = approvals
-        self.questions = questions
-        self.failures = failures
+    init(sessionCount: Int = 0) {
+        self.sessionCount = sessionCount
     }
 
-    init(sessions: [AgentSession], at date: Date = Date()) {
-        approvals = sessions.filter { $0.status == .needsApproval }.count
-        questions = sessions.filter { $0.status == .question }.count
-        failures = sessions.filter { $0.status == .failed }.count
-        active = sessions.filter {
-            ![.needsApproval, .question, .failed].contains($0.status)
-                && $0.countsAsActiveTask(at: date)
-        }.count
-    }
-
-    var isEmpty: Bool {
-        active == 0 && approvals == 0 && questions == 0 && failures == 0
+    init(sessions: [AgentSession]) {
+        sessionCount = sessions.count
     }
 
     var accessibilityLabel: String {
-        let parts = [
-            countLabel(active, singular: "active task", plural: "active tasks"),
-            countLabel(approvals, singular: "approval request", plural: "approval requests"),
-            countLabel(questions, singular: "question", plural: "questions"),
-            countLabel(failures, singular: "failed task", plural: "failed tasks"),
-        ].compactMap { $0 }
-        return parts.isEmpty ? "No active agent tasks" : parts.joined(separator: ", ")
-    }
-
-    private func countLabel(
-        _ count: Int,
-        singular: String,
-        plural: String
-    ) -> String? {
-        guard count > 0 else { return nil }
-        return "\(count) \(count == 1 ? singular : plural)"
+        "\(sessionCount) \(sessionCount == 1 ? "agent session" : "agent sessions")"
     }
 }
 
@@ -148,7 +112,6 @@ struct NotchRootView: View {
         ZStack(alignment: .top) {
             CompactNotchView(store: store)
                 .opacity(compactOpacity)
-                .environment(\.notchAnimationActive, contentProgress < 0.999)
                 .allowsHitTesting(contentProgress < 0.5)
                 .accessibilityHidden(contentProgress >= 0.5)
 
@@ -159,7 +122,6 @@ struct NotchRootView: View {
                 quitApplication: quitApplication
             )
                 .opacity(expandedProgress)
-                .environment(\.notchAnimationActive, contentProgress > 0.001)
                 .scaleEffect(
                     shouldReduceMotion ? 1 : 0.97 + 0.03 * expandedProgress,
                     anchor: .top
@@ -282,80 +244,13 @@ struct CompactNotchView: View {
 
 private struct CompactSummaryView: View {
     let summary: CompactSessionSummary
-    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
-    @Environment(\.notchReduceMotion) private var appReduceMotion
 
     var body: some View {
-        HStack(spacing: 7) {
-            if summary.active > 0 {
-                metric(
-                    symbol: "bolt.fill",
-                    count: summary.active,
-                    label: "active",
-                    color: NotchTheme.cyan,
-                    help: "Agents currently working or waiting"
-                )
-            }
-            if summary.approvals > 0 {
-                metric(
-                    symbol: "hand.raised.fill",
-                    count: summary.approvals,
-                    color: NotchTheme.amber,
-                    help: "Approval requests"
-                )
-            }
-            if summary.questions > 0 {
-                metric(
-                    symbol: "questionmark.bubble.fill",
-                    count: summary.questions,
-                    color: NotchTheme.amber,
-                    help: "Questions awaiting an answer"
-                )
-            }
-            if summary.failures > 0 {
-                metric(
-                    symbol: "xmark",
-                    count: summary.failures,
-                    color: NotchTheme.red,
-                    help: "Failed agent tasks"
-                )
-            }
-            if summary.isEmpty {
-                Text("Idle")
-                    .font(.system(size: 10.5, weight: .semibold, design: .rounded))
-                    .foregroundStyle(.white.opacity(0.62))
-            }
-        }
-        .accessibilityHidden(true)
-    }
-
-    private func metric(
-        symbol: String,
-        count: Int,
-        label: String? = nil,
-        color: Color,
-        help: String
-    ) -> some View {
-        HStack(spacing: 2.5) {
-            Image(systemName: symbol)
-                .font(.system(size: 7.5, weight: .bold))
-            Text("\(count)")
-                .font(.system(size: 11, weight: .bold, design: .rounded))
-                .monospacedDigit()
-                .contentTransition(.numericText())
-                .animation(
-                    systemReduceMotion || appReduceMotion
-                        ? nil
-                        : .easeOut(duration: AppMotionPolicy.contentCrossfadeDuration),
-                    value: count
-                )
-            if let label {
-                Text(label)
-                    .font(.system(size: 9, weight: .semibold, design: .rounded))
-            }
-        }
-        .foregroundStyle(color.opacity(0.9))
-        .help(help)
+        Text("\(summary.sessionCount)")
+            .font(.system(size: 11, weight: .bold, design: .rounded))
+            .monospacedDigit()
+            .foregroundStyle(NotchTheme.cyan.opacity(0.9))
+            .accessibilityHidden(true)
     }
 }
 
@@ -1391,7 +1286,6 @@ struct ActivityStateImage: View {
     let size: CGFloat
     @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
     @Environment(\.notchReduceMotion) private var appReduceMotion
-    @Environment(\.notchAnimationActive) private var animationActive
 
     var body: some View {
         let emphasis = ActivityStateEmphasis.forPhase(phase)
@@ -1403,15 +1297,7 @@ struct ActivityStateImage: View {
                 .blur(radius: size * 0.16)
 
             Group {
-                if let orb = ThinkingOrbState.forActivity(phase),
-                   !(reduceMotion && [.question, .approval].contains(phase)) {
-                    ThinkingOrb(
-                        state: orb,
-                        phaseLabel: phase.accessibilityLabel,
-                        size: size,
-                        paused: !animationActive
-                    )
-                } else if let image = Self.image(for: phase) {
+                if let image = Self.image(for: phase) {
                     Image(nsImage: image)
                         .resizable()
                         .interpolation(.high)

@@ -1,76 +1,113 @@
 import AppKit
 
 let output = CommandLine.arguments.dropFirst().first ?? "AppIcon.png"
-let size = NSSize(width: 1024, height: 1024)
-let image = NSImage(size: size)
-image.lockFocus()
+guard let bitmap = NSBitmapImageRep(
+    bitmapDataPlanes: nil,
+    pixelsWide: 1024,
+    pixelsHigh: 1024,
+    bitsPerSample: 8,
+    samplesPerPixel: 4,
+    hasAlpha: true,
+    isPlanar: false,
+    colorSpaceName: .deviceRGB,
+    bytesPerRow: 0,
+    bitsPerPixel: 0
+) else {
+    exit(1)
+}
+bitmap.size = NSSize(width: 1024, height: 1024)
+NSGraphicsContext.saveGraphicsState()
+NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: bitmap)
 
-let background = NSBezierPath(roundedRect: NSRect(x: 48, y: 48, width: 928, height: 928), xRadius: 220, yRadius: 220)
-NSColor(calibratedRed: 0.018, green: 0.022, blue: 0.035, alpha: 1).setFill()
+let background = NSBezierPath(
+    roundedRect: NSRect(x: 64, y: 64, width: 896, height: 896),
+    xRadius: 210,
+    yRadius: 210
+)
+let backgroundColor = NSColor(
+    calibratedRed: 0.18,
+    green: 0.31,
+    blue: 0.45,
+    alpha: 1
+)
+backgroundColor.setFill()
 background.fill()
 
-let inner = NSBezierPath(roundedRect: NSRect(x: 82, y: 82, width: 860, height: 860), xRadius: 190, yRadius: 190)
-NSColor(calibratedRed: 0.035, green: 0.045, blue: 0.07, alpha: 1).setFill()
-inner.fill()
-
-let center = NSPoint(x: 512, y: 512)
-let shadow = NSShadow()
-shadow.shadowColor = NSColor(calibratedRed: 0.16, green: 0.72, blue: 1, alpha: 0.92)
-shadow.shadowBlurRadius = 48
-shadow.shadowOffset = .zero
-let rotations = [-58.0, 0.0, 58.0]
-let phases = [0.4, 2.3, 4.5]
-for orbitIndex in rotations.indices {
-    let rotation = rotations[orbitIndex] * .pi / 180
-    for ghostIndex in 0..<18 {
-        let angle = Double(ghostIndex) / 18 * 2 * .pi
-        let localX = 300 * cos(angle)
-        let localY = 126 * sin(angle)
-        let x = center.x + CGFloat(localX * cos(rotation) - localY * sin(rotation))
-        let y = center.y + CGFloat(localX * sin(rotation) + localY * cos(rotation))
-        let depth = (sin(angle) + 1) / 2
-        let diameter = CGFloat(17 + depth * 18)
-        NSColor(calibratedWhite: 1, alpha: 0.18 + depth * 0.34).setFill()
-        NSBezierPath(
-            ovalIn: NSRect(
-                x: x - diameter / 2,
-                y: y - diameter / 2,
-                width: diameter,
-                height: diameter
-            )
-        ).fill()
-    }
-
-    for particleIndex in 0..<2 {
-        let angle = phases[orbitIndex] + Double(particleIndex) * .pi
-        let localX = 300 * cos(angle)
-        let localY = 126 * sin(angle)
-        let x = center.x + CGFloat(localX * cos(rotation) - localY * sin(rotation))
-        let y = center.y + CGFloat(localX * sin(rotation) + localY * cos(rotation))
-        let diameter: CGFloat = 62
-
-        NSGraphicsContext.current?.saveGraphicsState()
-        shadow.set()
-        NSColor(
-            calibratedRed: particleIndex == 0 ? 0.22 : 0.58,
-            green: particleIndex == 0 ? 0.78 : 0.88,
-            blue: 1,
-            alpha: particleIndex == 0 ? 1 : 0.82
-        ).setFill()
-        NSBezierPath(
-            ovalIn: NSRect(
-                x: x - diameter / 2,
-                y: y - diameter / 2,
-                width: diameter,
-                height: diameter
-            )
-        ).fill()
-        NSGraphicsContext.current?.restoreGraphicsState()
-    }
+func stroke(_ path: NSBezierPath, width: CGFloat = 56) {
+    path.lineWidth = width
+    path.lineCapStyle = .round
+    path.lineJoinStyle = .round
+    NSColor.white.setStroke()
+    path.stroke()
 }
-image.unlockFocus()
 
-guard let tiff = image.tiffRepresentation,
-      let bitmap = NSBitmapImageRep(data: tiff),
-      let png = bitmap.representation(using: .png, properties: [:]) else { exit(1) }
+let branches = NSBezierPath()
+branches.move(to: NSPoint(x: 512, y: 635))
+branches.line(to: NSPoint(x: 512, y: 520))
+branches.move(to: NSPoint(x: 512, y: 540))
+branches.curve(
+    to: NSPoint(x: 338, y: 390),
+    controlPoint1: NSPoint(x: 474, y: 490),
+    controlPoint2: NSPoint(x: 388, y: 468)
+)
+branches.move(to: NSPoint(x: 512, y: 540))
+branches.curve(
+    to: NSPoint(x: 686, y: 390),
+    controlPoint1: NSPoint(x: 550, y: 490),
+    controlPoint2: NSPoint(x: 636, y: 468)
+)
+stroke(branches, width: 48)
+
+NSColor.white.setFill()
+NSBezierPath(
+    roundedRect: NSRect(x: 242, y: 680, width: 540, height: 64),
+    xRadius: 32,
+    yRadius: 32
+).fill()
+
+backgroundColor.setFill()
+NSBezierPath(
+    roundedRect: NSRect(x: 449, y: 665, width: 126, height: 96),
+    xRadius: 30,
+    yRadius: 30
+).fill()
+
+NSColor.white.setFill()
+NSBezierPath(
+    ovalIn: NSRect(x: 462, y: 490, width: 100, height: 100)
+).fill()
+
+let nodes: [(NSPoint, NSColor)] = [
+    (
+        NSPoint(x: 338, y: 344),
+        NSColor(calibratedRed: 0.02, green: 0.82, blue: 0.9, alpha: 1)
+    ),
+    (
+        NSPoint(x: 512, y: 344),
+        NSColor(calibratedRed: 1, green: 0.28, blue: 0.32, alpha: 1)
+    ),
+    (
+        NSPoint(x: 686, y: 344),
+        NSColor(calibratedRed: 0.02, green: 0.82, blue: 0.9, alpha: 1)
+    ),
+]
+
+for (center, color) in nodes {
+    NSColor.white.setFill()
+    NSBezierPath(
+        ovalIn: NSRect(x: center.x - 62, y: center.y - 62, width: 124, height: 124)
+    ).fill()
+
+    color.setFill()
+    NSBezierPath(
+        ovalIn: NSRect(x: center.x - 32, y: center.y - 32, width: 64, height: 64)
+    ).fill()
+}
+
+NSGraphicsContext.restoreGraphicsState()
+
+guard let png = bitmap.representation(using: .png, properties: [:])
+else {
+    exit(1)
+}
 try png.write(to: URL(fileURLWithPath: output), options: .atomic)

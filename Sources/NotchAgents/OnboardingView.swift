@@ -178,11 +178,12 @@ struct OnboardingView: View {
                 Circle()
                     .fill(Color.accentColor.gradient)
                     .frame(width: 60, height: 60)
-                ThinkingOrb(
-                    state: .working,
-                    phaseLabel: "Notch Agents",
-                    size: 34
-                )
+                Image(nsImage: ThinkingOrbMenuBarIcon.makeImage(pointSize: 34))
+                    .resizable()
+                    .renderingMode(.template)
+                    .foregroundStyle(.white)
+                    .frame(width: 34, height: 34)
+                    .accessibilityLabel("Notch Agents")
             }
             .accessibilityHidden(true)
 

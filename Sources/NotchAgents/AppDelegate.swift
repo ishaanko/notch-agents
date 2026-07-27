@@ -17,6 +17,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem?
 
     static func main() {
+        AppMotionPolicy.normalizePreferences()
         let app = NSApplication.shared
         let delegate = AppDelegate()
         app.delegate = delegate

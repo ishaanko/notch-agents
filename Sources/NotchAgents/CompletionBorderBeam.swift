@@ -10,7 +10,6 @@ struct CompletionBorderBeam: View {
     @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
     @Environment(\.notchReduceMotion) private var appReduceMotion
     @State private var start = Date()
-    @State private var finished = false
 
     var body: some View {
         let reduceMotion = systemReduceMotion || appReduceMotion
@@ -18,7 +17,7 @@ struct CompletionBorderBeam: View {
             if reduceMotion {
                 staticFlash
             } else {
-                TimelineView(.animation(paused: finished)) { context in
+                TimelineView(.periodic(from: start, by: 1.0 / 30.0)) { context in
                     let elapsed = max(0, context.date.timeIntervalSince(start))
                     let circuit = min(1, elapsed / 1.35)
                     let fade = elapsed <= 1.35 ? 1 : max(0, 1 - (elapsed - 1.35) / 0.18)
@@ -30,11 +29,9 @@ struct CompletionBorderBeam: View {
         .accessibilityHidden(true)
         .task(id: token) {
             start = Date()
-            finished = false
             let duration = reduceMotion ? 0.2 : 1.53
             try? await Task.sleep(for: .seconds(duration))
             guard !Task.isCancelled else { return }
-            finished = true
             onFinished()
         }
     }

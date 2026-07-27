@@ -15,7 +15,7 @@ final class UpdateManager: ObservableObject {
     @Published private(set) var lastChecked: Date?
 
     var currentVersion: String {
-        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.1.0"
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.1.1"
     }
 
     var statusText: String {

@@ -19,7 +19,7 @@ struct Arguments {
                 port = UInt16(values[index + 1]) ?? port
                 index += 2
             case "--version":
-                print("notch-agents-bridge 0.1.0")
+                print("notch-agents-bridge 0.1.1")
                 exit(0)
             default:
                 index += 1

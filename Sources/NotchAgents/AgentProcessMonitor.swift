@@ -25,6 +25,22 @@ struct RunningProcessRecord: Equatable, Sendable {
 }
 
 enum AgentProcessParser {
+    private static let wrappers: Set<String> = [
+        "node", "bun", "deno", "npx", "npm", "pnpm", "yarn", "env",
+    ]
+    private static let ignoredExecutables: Set<String> = [
+        "zsh", "bash", "sh", "fish", "rg", "grep", "ps",
+    ]
+    private static let executableAgents: [String: AgentKind] = {
+        var result: [String: AgentKind] = [:]
+        for descriptor in AgentIntegrationCatalog.descriptors {
+            for name in descriptor.executableNames {
+                result[name.lowercased()] = descriptor.agent
+            }
+        }
+        return result
+    }()
+
     static func parseProcessList(_ output: String) -> [RunningProcessRecord] {
         output.split(whereSeparator: \.isNewline).compactMap { rawLine in
             let parts = rawLine
@@ -59,24 +75,19 @@ enum AgentProcessParser {
 
         let tokens = lower.split(whereSeparator: \.isWhitespace).prefix(5).map(String.init)
         guard let first = tokens.first else { return nil }
-        let firstBase = URL(fileURLWithPath: first.trimmingCharacters(in: CharacterSet(charactersIn: "\"'")))
-            .lastPathComponent
-        let wrappers: Set<String> = ["node", "bun", "deno", "npx", "npm", "pnpm", "yarn", "env"]
-        guard !["zsh", "bash", "sh", "fish", "rg", "grep", "ps"].contains(firstBase) else { return nil }
+        let firstBase = executableBaseName(first)
+        guard !ignoredExecutables.contains(firstBase) else { return nil }
         let candidates = wrappers.contains(firstBase) ? Array(tokens.dropFirst()) : [first]
 
-        func containsExecutable(_ names: Set<String>) -> Bool {
-            candidates.contains { token in
-                let trimmed = token.trimmingCharacters(in: CharacterSet(charactersIn: "\"'"))
-                let base = URL(fileURLWithPath: trimmed).lastPathComponent
-                return names.contains(base)
-                    || names.contains(where: { trimmed.contains("/.bin/\($0)") })
+        let descriptorAgent: AgentKind? = candidates.compactMap { token in
+            let path = token.trimmingCharacters(in: CharacterSet(charactersIn: "\"'"))
+            if let exact = executableAgents[executableBaseName(path)] {
+                return exact
             }
-        }
-
-        let descriptor = AgentIntegrationCatalog.descriptors.first(where: {
-            containsExecutable(Set($0.executableNames))
-        })
+            return executableAgents.first(where: {
+                path.contains("/.bin/\($0.key)")
+            })?.value
+        }.first
         let packageAgent: AgentKind? = candidates.compactMap { token in
             let path = token.trimmingCharacters(in: CharacterSet(charactersIn: "\"'"))
             if path.contains("/@opencode-ai/") || path.contains("/node_modules/opencode/") {
@@ -87,12 +98,22 @@ enum AgentProcessParser {
             }
             return nil
         }.first
-        guard let agent = descriptor?.agent ?? packageAgent else { return nil }
+        guard let agent = descriptorAgent ?? packageAgent else { return nil }
         if agent == .codex {
             let excludedSubcommands: Set<String> = ["app-server", "sandbox", "exec"]
             if tokens.contains(where: { excludedSubcommands.contains($0) }) { return nil }
         }
         return agent
+    }
+
+    private static func executableBaseName(_ value: String) -> String {
+        let trimmed = value.trimmingCharacters(
+            in: CharacterSet(charactersIn: "\"'")
+        )
+        return trimmed.split(separator: "/", omittingEmptySubsequences: true)
+            .last
+            .map(String.init)
+            ?? trimmed
     }
 
     static func sessionID(command: String, lsofOutput: String?) -> String? {
@@ -190,8 +211,12 @@ final class AgentProcessDiscovery: @unchecked Sendable {
         var claimed: Set<String> = []
         var result: [AgentProcessSnapshot] = []
 
+        var antigravityHost: RunningProcessRecord?
         for process in processes {
             guard let agent = AgentProcessParser.agent(for: process.command) else { continue }
+            if agent == .antigravity, antigravityHost == nil {
+                antigravityHost = process
+            }
             // Provider hooks own identity. Process discovery only enriches
             // interactive terminal sessions; headless helpers are not chats.
             guard process.terminalTTY != nil || agent == .opencode else { continue }
@@ -242,14 +267,14 @@ final class AgentProcessDiscovery: @unchecked Sendable {
             ))
         }
         result.append(contentsOf: discoverActiveT3Sessions(in: processes))
-        result.append(contentsOf: discoverAntigravityAttention(in: processes))
+        result.append(contentsOf: discoverAntigravityAttention(host: antigravityHost))
         return result
     }
 
-    private func discoverAntigravityAttention(in processes: [RunningProcessRecord]) -> [AgentProcessSnapshot] {
-        guard let host = processes.first(where: {
-            AgentProcessParser.agent(for: $0.command) == .antigravity
-        }) else { return [] }
+    private func discoverAntigravityAttention(
+        host: RunningProcessRecord?
+    ) -> [AgentProcessSnapshot] {
+        guard let host else { return [] }
         let root = home.appendingPathComponent(".gemini/antigravity-cli/conversations", isDirectory: true)
         guard let files = try? FileManager.default.contentsOfDirectory(
             at: root,
@@ -554,7 +579,7 @@ final class AgentProcessMonitor: @unchecked Sendable {
     func start() {
         guard timer == nil else { return }
         let timer = DispatchSource.makeTimerSource(queue: queue)
-        timer.schedule(deadline: .now(), repeating: 5, leeway: .milliseconds(750))
+        timer.schedule(deadline: .now(), repeating: 30, leeway: .seconds(5))
         timer.setEventHandler { [weak self] in
             guard let self else { return }
             let snapshots = self.discovery.discover()

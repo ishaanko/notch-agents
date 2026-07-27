@@ -222,7 +222,7 @@ enum ProviderHookConfiguration {
             "displayName": "Notch Agents",
             "managedBy": "notch-agents",
             "name": "notch-agents",
-            "version": "0.1.0",
+            "version": "0.1.1",
         ])
     }
 

@@ -1,25 +1,12 @@
 import AppKit
-import SwiftUI
 
-// Pure-SwiftUI port of Jakub Antalik's MIT-licensed thinking-orbs engine:
+// Static AppKit renderer based on Jakub Antalik's MIT-licensed thinking-orbs engine:
 // https://github.com/Jakubantalik/thinking-orbs
 // The projector, deterministic lattices, resolved 20pt profiles, motion
 // cycles, depth ink and far-to-near painter follow the source implementation.
 
 enum ThinkingOrbState: String, CaseIterable, Sendable {
     case working, searching, solving, listening, composing, shaping
-
-    static func forActivity(_ phase: ActivityPhase) -> ThinkingOrbState? {
-        switch phase {
-        case .working: .working
-        case .thinking: .solving
-        case .tool: .searching
-        case .editing: .composing
-        case .waiting, .question: .listening
-        case .approval: .shaping
-        case .succeeded, .failed, .idle: nil
-        }
-    }
 }
 
 struct ThinkingOrbPreset: Equatable, Sendable {
@@ -39,61 +26,6 @@ struct ThinkingOrbPreset: Equatable, Sendable {
         .composing: .init(speed: 3.12, count: 0.051, radius: 1.073, band: 4.94),
         .shaping: .init(speed: 2.08, count: 0.53, radius: 1.011, spread: 1.45),
     ]
-}
-
-struct ThinkingOrb: View {
-    let state: ThinkingOrbState
-    let phaseLabel: String
-    var size: CGFloat = 20
-    var paused = false
-    @Environment(\.accessibilityReduceMotion) private var systemReduceMotion
-    @Environment(\.notchReduceMotion) private var appReduceMotion
-    @AppStorage(AppMotionPolicy.animationFPSPreferenceKey) private var animationFPS = 60
-
-    var body: some View {
-        let reduceMotion = systemReduceMotion || appReduceMotion
-        Group {
-            if reduceMotion || paused {
-                orbCanvas(time: 0.6)
-            } else {
-                TimelineView(.animation(
-                    minimumInterval: 1.0 / Double(max(1, animationFPS)),
-                    paused: paused
-                )) { context in
-                    orbCanvas(time: context.date.timeIntervalSinceReferenceDate)
-                }
-            }
-        }
-        .frame(width: size, height: size)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(phaseLabel)
-    }
-
-    private func orbCanvas(time: TimeInterval) -> some View {
-        Canvas(opaque: false, colorMode: .linear, rendersAsynchronously: true) { context, canvasSize in
-            let dots = ThinkingOrbRenderer.dots(
-                state: state,
-                time: time,
-                size: min(canvasSize.width, canvasSize.height)
-            )
-            // Source paint(): strict monochrome dark-theme ink, far → near.
-            for dot in dots.sorted(by: { $0.z < $1.z }) where dot.alpha >= 0.02 {
-                let white = min(1, max(0, dot.white))
-                let gray = 1 - white
-                let radius = max(0.3, dot.radius)
-                let rect = CGRect(
-                    x: dot.x - radius,
-                    y: dot.y - radius,
-                    width: radius * 2,
-                    height: radius * 2
-                )
-                context.fill(
-                    Path(ellipseIn: rect),
-                    with: .color(Color(white: gray).opacity(min(1, max(0, dot.alpha))))
-                )
-            }
-        }
-    }
 }
 
 enum ThinkingOrbMenuBarIcon {

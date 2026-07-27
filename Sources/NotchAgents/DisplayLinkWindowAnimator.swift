@@ -9,10 +9,24 @@ import QuartzCore
 /// top-anchored scale from it instead of starting a second implicit animation.
 @MainActor
 final class NotchSurfaceMotionState: ObservableObject {
-    @Published private(set) var progress: CGFloat = 0
-    @Published private(set) var isExpanded = false
-    @Published private(set) var reduceMotion = false
-    @Published private(set) var geometry = NotchSurfaceMotionController.Geometry.compact
+    private struct Presentation: Equatable {
+        var progress: CGFloat
+        var isExpanded: Bool
+        var reduceMotion: Bool
+        var geometry: NotchSurfaceMotionController.Geometry
+    }
+
+    @Published private var presentation = Presentation(
+        progress: 0,
+        isExpanded: false,
+        reduceMotion: false,
+        geometry: .compact
+    )
+
+    var progress: CGFloat { presentation.progress }
+    var isExpanded: Bool { presentation.isExpanded }
+    var reduceMotion: Bool { presentation.reduceMotion }
+    var geometry: NotchSurfaceMotionController.Geometry { presentation.geometry }
 
     fileprivate func update(
         progress: CGFloat,
@@ -20,10 +34,15 @@ final class NotchSurfaceMotionState: ObservableObject {
         reduceMotion: Bool,
         geometry: NotchSurfaceMotionController.Geometry
     ) {
-        self.progress = progress
-        self.isExpanded = isExpanded
-        self.reduceMotion = reduceMotion
-        self.geometry = geometry
+        let next = Presentation(
+            progress: progress,
+            isExpanded: isExpanded,
+            reduceMotion: reduceMotion,
+            geometry: geometry
+        )
+        if presentation != next {
+            presentation = next
+        }
     }
 }
 
@@ -195,7 +214,9 @@ final class NotchSurfaceMotionController {
         let configuredFPS = Self.animationFPS
         let preferredFPS = configuredFPS == 0 ? 60 : configuredFPS
 
-        let minimumTicks = UInt64(CVGetHostClockFrequency() / Double(preferredFPS == 60 ? 60 : 120))
+        let minimumTicks = UInt64(
+            CVGetHostClockFrequency() / Double(max(30, min(60, preferredFPS)))
+        )
         guard lastDeliveredHostTime == 0 || hostTime - lastDeliveredHostTime >= minimumTicks else {
             return
         }
@@ -303,9 +324,10 @@ final class NotchSurfaceMotionController {
 
     private static var animationFPS: Int {
         let defaults = UserDefaults.standard
-        return defaults.object(forKey: "notchAgents.animationFPS") == nil
+        let configured = defaults.object(forKey: "notchAgents.animationFPS") == nil
             ? 60
             : defaults.integer(forKey: "notchAgents.animationFPS")
+        return min(60, configured)
     }
 }
 

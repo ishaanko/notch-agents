@@ -133,12 +133,12 @@ struct SettingsView: View {
     var body: some View {
         NavigationSplitView {
             sidebar
-                .navigationSplitViewColumnWidth(min: 180, ideal: 205, max: 240)
+                .navigationSplitViewColumnWidth(min: 160, ideal: 180, max: 210)
         } detail: {
             detail
         }
         .navigationSplitViewStyle(.balanced)
-        .frame(minWidth: 760, idealWidth: 880, minHeight: 520, idealHeight: 620)
+        .frame(minWidth: 720, idealWidth: 820, minHeight: 500, idealHeight: 560)
         .background(Color(nsColor: .windowBackgroundColor))
     }
 
@@ -146,6 +146,7 @@ struct SettingsView: View {
         VStack(spacing: 0) {
             List(Section.allCases, selection: $selection) { section in
                 Label(section.rawValue, systemImage: section.icon)
+                    .font(.system(size: 12))
                     .tag(section)
                     .accessibilityLabel("\(section.rawValue) settings")
             }
@@ -161,9 +162,11 @@ struct SettingsView: View {
                 .foregroundStyle(store.serverIsReady ? Color.green : Color.orange)
                 .font(.caption)
 
-                Text(store.processMonitorIsReady
-                     ? "\(store.activeSessions.count) active session\(store.activeSessions.count == 1 ? "" : "s")"
-                     : "Starting process monitor…")
+                Text(
+                    store.processMonitorIsReady
+                        ? "\(store.visibleSessions.count) session\(store.visibleSessions.count == 1 ? "" : "s")"
+                        : "Starting process monitor…"
+                )
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -210,8 +213,8 @@ struct SettingsView: View {
 
             SettingsGroup("Motion") {
                 Picker("Refresh rate", selection: $animationFPS) {
-                    Text("ProMotion (up to 120 Hz)").tag(120)
                     Text("Balanced (60 Hz)").tag(60)
+                    Text("Energy Saver (30 Hz)").tag(30)
                     Text("Reduce motion").tag(0)
                 }
                 if animationFPS != 0 {
@@ -224,7 +227,7 @@ struct SettingsView: View {
                     )
                     .transition(disclosureTransition)
                 }
-                SettingsNote("Transitions synchronize with the active display. ProMotion is used when the display supports it.")
+                SettingsNote("Transitions stop as soon as they settle and are capped at 60 Hz.")
             }
             .animation(.easeOut(duration: 0.15), value: animationFPS)
         }
@@ -730,28 +733,14 @@ struct SettingsView: View {
             AgentBrandIcon(agent: integration.id, size: 28, role: .company)
                 .frame(width: 28, height: 28)
 
-            VStack(alignment: .leading, spacing: 3) {
+            VStack(alignment: .leading, spacing: 4) {
                 Text(integration.id.displayName)
-                    .font(.body.weight(.medium))
+                    .font(.callout.weight(.medium))
                 Text(integration.note)
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                HStack(spacing: 5) {
-                    if integration.capabilities.liveActivity {
-                        CapabilityLabel("Live activity")
-                    } else if integration.capabilities.eventActivity {
-                        CapabilityLabel("Lifecycle events")
-                    } else {
-                        CapabilityLabel("Runtime presence")
-                    }
-                    if integration.capabilities.approvals {
-                        CapabilityLabel("In-notch approvals")
-                    }
-                    if integration.capabilities.questions {
-                        CapabilityLabel("In-notch questions")
-                    }
-                    if integration.capabilities.jumpToSession { CapabilityLabel("Open chat") }
-                }
+                    .lineLimit(1)
+                    .help(capabilityHelp(for: integration))
 
                 if case let .failed(message) = integrations.operationStates[integration.id] {
                     Text(message)
@@ -794,6 +783,28 @@ struct SettingsView: View {
             }
         }
         .padding(.vertical, 10)
+    }
+
+    private func capabilityHelp(
+        for integration: IntegrationManager.Integration
+    ) -> String {
+        var capabilities = [
+            integration.capabilities.liveActivity
+                ? "live activity"
+                : integration.capabilities.eventActivity
+                    ? "lifecycle events"
+                    : "runtime presence",
+        ]
+        if integration.capabilities.approvals {
+            capabilities.append("in-notch approvals")
+        }
+        if integration.capabilities.questions {
+            capabilities.append("in-notch questions")
+        }
+        if integration.capabilities.jumpToSession {
+            capabilities.append("open chat")
+        }
+        return "Supports " + capabilities.joined(separator: ", ") + "."
     }
 
     private func integrationStatus(_ integration: IntegrationManager.Integration) -> String {
@@ -951,23 +962,6 @@ struct SettingsView: View {
     }
 }
 
-private struct CapabilityLabel: View {
-    let text: String
-
-    init(_ text: String) {
-        self.text = text
-    }
-
-    var body: some View {
-        Text(text)
-            .font(.caption2)
-            .foregroundStyle(.secondary)
-            .padding(.horizontal, 6)
-            .padding(.vertical, 2)
-            .background(.quaternary, in: Capsule())
-    }
-}
-
 private struct RecentActivityRow: View {
     let activity: ResolvedActivity
 
@@ -1107,19 +1101,19 @@ private struct SettingsPane<Content: View>: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 22) {
-                VStack(alignment: .leading, spacing: 5) {
+            VStack(alignment: .leading, spacing: 18) {
+                VStack(alignment: .leading, spacing: 3) {
                     Text(title)
-                        .font(.largeTitle.weight(.semibold))
+                        .font(.title2.weight(.semibold))
                     Text(subtitle)
-                        .font(.callout)
+                        .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
                 content
             }
-            .frame(maxWidth: 700, alignment: .leading)
-            .padding(.horizontal, 32)
-            .padding(.vertical, 28)
+            .frame(maxWidth: 660, alignment: .leading)
+            .padding(.horizontal, 24)
+            .padding(.vertical, 22)
             .frame(maxWidth: .infinity, alignment: .topLeading)
         }
     }
@@ -1130,25 +1124,26 @@ private struct SettingsGroup<Content: View>: View {
     let spacing: CGFloat
     @ViewBuilder let content: Content
 
-    init(_ title: String, spacing: CGFloat = 13, @ViewBuilder content: () -> Content) {
+    init(_ title: String, spacing: CGFloat = 10, @ViewBuilder content: () -> Content) {
         self.title = title
         self.spacing = spacing
         self.content = content()
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 6) {
             Text(title)
-                .font(.headline)
+                .font(.subheadline.weight(.semibold))
             VStack(alignment: .leading, spacing: spacing) {
                 content
             }
-            .controlSize(.regular)
-            .padding(16)
+            .font(.callout)
+            .controlSize(.small)
+            .padding(13)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 10))
+            .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 9))
             .overlay {
-                RoundedRectangle(cornerRadius: 10)
+                RoundedRectangle(cornerRadius: 9)
                     .stroke(Color(nsColor: .separatorColor).opacity(0.45), lineWidth: 0.5)
             }
         }

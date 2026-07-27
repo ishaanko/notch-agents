@@ -1,6 +1,6 @@
 import Foundation
 
-struct DiscoveredSession: Sendable {
+struct DiscoveredSession: Equatable, Sendable {
     var id: String
     var projectName: String
     var conversationTitle: String
@@ -140,9 +140,11 @@ enum CodexRolloutParser {
 @MainActor
 final class CodexSessionWatcher {
     private var timer: Timer?
+    private var scanTask: Task<Void, Never>?
     private let onSessions: ([DiscoveredSession]) -> Void
     private var fileWatchers: [String: CodexRolloutFileWatcher] = [:]
     private var metadata: [String: DiscoveredSession] = [:]
+    private var lastDiscovery: [DiscoveredSession] = []
 
     init(onSessions: @escaping ([DiscoveredSession]) -> Void) {
         self.onSessions = onSessions
@@ -150,25 +152,32 @@ final class CodexSessionWatcher {
 
     func start() {
         scan()
-        timer = Timer.scheduledTimer(withTimeInterval: 20, repeats: true) { [weak self] _ in
+        timer = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.scan() }
         }
-        timer?.tolerance = 3
+        timer?.tolerance = 15
     }
 
     func stop() {
         timer?.invalidate()
         timer = nil
+        scanTask?.cancel()
+        scanTask = nil
         fileWatchers.values.forEach { $0.stop() }
         fileWatchers.removeAll()
     }
 
     private func scan() {
-        Task {
+        guard scanTask == nil else { return }
+        scanTask = Task { [weak self] in
             let result = await Task.detached(priority: .utility) { Self.discover() }.value
-            metadata = Dictionary(uniqueKeysWithValues: result.map { ($0.id, $0) })
-            onSessions(result)
-            syncWatchers(with: result)
+            guard let self else { return }
+            defer { self.scanTask = nil }
+            guard !Task.isCancelled, result != self.lastDiscovery else { return }
+            self.lastDiscovery = result
+            self.metadata = Dictionary(uniqueKeysWithValues: result.map { ($0.id, $0) })
+            self.onSessions(result)
+            self.syncWatchers(with: result)
         }
     }
 
