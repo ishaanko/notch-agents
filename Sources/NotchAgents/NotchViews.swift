@@ -346,7 +346,13 @@ struct ExpandedNotchView: View {
                     .font(.system(size: 10.5, weight: .medium, design: .rounded))
                     .foregroundStyle(.white.opacity(0.56))
             }
+            if store.attentionCount > 0 {
+                HeaderAttentionBadge(count: store.attentionCount)
+            }
             Spacer(minLength: 8)
+            if !store.showsAllSessions, store.visibleSessions.count > 1 {
+                HeaderSessionNavigator(store: store)
+            }
             HStack(spacing: 4) {
                 HeaderIconButton(
                     systemName: "chevron.up",
@@ -418,6 +424,66 @@ struct ExpandedNotchView: View {
         .accessibilityElement(children: .contain)
     }
 
+}
+
+private struct HeaderAttentionBadge: View {
+    let count: Int
+
+    var body: some View {
+        Label("\(count) waiting", systemImage: "exclamationmark")
+            .font(.system(size: 9, weight: .bold, design: .rounded))
+            .foregroundStyle(NotchTheme.amber.opacity(0.92))
+            .padding(.horizontal, 7)
+            .frame(height: 22)
+            .background(NotchTheme.amber.opacity(0.1), in: Capsule())
+            .overlay {
+                Capsule()
+                    .stroke(NotchTheme.amber.opacity(0.2), lineWidth: 0.5)
+            }
+            .accessibilityLabel(
+                "\(count) request\(count == 1 ? "" : "s") waiting for attention"
+            )
+    }
+}
+
+private struct HeaderSessionNavigator: View {
+    @ObservedObject var store: SessionStore
+
+    var body: some View {
+        HStack(spacing: 1) {
+            HeaderIconButton(
+                systemName: "chevron.left",
+                label: "Previous session",
+                helpText: "Show previous session"
+            ) {
+                store.moveFocus(by: -1)
+            }
+            Text("\(currentPosition) / \(store.visibleSessions.count)")
+                .font(.system(size: 9, weight: .bold, design: .rounded))
+                .monospacedDigit()
+                .foregroundStyle(.white.opacity(0.46))
+                .frame(minWidth: 30)
+                .accessibilityHidden(true)
+            HeaderIconButton(
+                systemName: "chevron.right",
+                label: "Next session",
+                helpText: "Show next session"
+            ) {
+                store.moveFocus(by: 1)
+            }
+        }
+        .padding(.horizontal, 2)
+        .background(.white.opacity(0.035), in: Capsule())
+        .accessibilityElement(children: .contain)
+    }
+
+    private var currentPosition: Int {
+        guard let focusedID = store.focusedSession?.id,
+              let index = store.visibleSessions.firstIndex(where: { $0.id == focusedID }) else {
+            return 1
+        }
+        return index + 1
+    }
 }
 
 private struct UsageHeaderView: View {

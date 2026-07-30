@@ -187,6 +187,36 @@ final class SessionStore: ObservableObject {
 
     var attentionCount: Int { visibleSessions.filter(\.needsAttention).count }
 
+    func toggleExpanded() {
+        if isExpanded {
+            guard !isPinned else { return }
+            isExpanded = false
+        } else {
+            isExpanded = true
+        }
+    }
+
+    func focusSession(id: String) {
+        guard visibleSessions.contains(where: { $0.id == id }) else { return }
+        selectedSessionID = id
+        showsAllSessions = false
+        isExpanded = true
+    }
+
+    func moveFocus(by offset: Int) {
+        let visible = visibleSessions
+        guard visible.count > 1 else { return }
+        let currentID = focusedSession?.id
+        let currentIndex = visible.firstIndex(where: { $0.id == currentID }) ?? 0
+        let nextIndex = (currentIndex + offset + visible.count) % visible.count
+        focusSession(id: visible[nextIndex].id)
+    }
+
+    func showAllSessions() {
+        showsAllSessions = true
+        isExpanded = true
+    }
+
     func consumeCompletionToken(for sessionID: String) -> String? {
         completionTokens.removeValue(forKey: sessionID)
     }

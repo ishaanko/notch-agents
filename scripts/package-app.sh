@@ -3,6 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="${0:A:h:h}"
 CONFIGURATION="${1:-release}"
+ARCHIVE_MODE="${2:-archive}"
 BUILD_DIR="$ROOT_DIR/.build/$CONFIGURATION"
 APP_DIR="$ROOT_DIR/build/Notch Agents.app"
 ARCHIVE_PATH="$ROOT_DIR/build/Notch-Agents-0.1.1.zip"
@@ -52,6 +53,10 @@ plutil -insert LSUIElement -bool true "$APP_DIR/Contents/Info.plist"
 plutil -insert NSAppleEventsUsageDescription -string "Notch Agents uses terminal automation to jump to the session you select." "$APP_DIR/Contents/Info.plist"
 
 codesign --force --deep --sign - "$APP_DIR"
+if [[ "$ARCHIVE_MODE" == "no-archive" ]]; then
+  echo "$APP_DIR"
+  exit 0
+fi
 ARCHIVE_STAGE="$(mktemp -d "$ROOT_DIR/build/.notch-agents-archive.XXXXXX")"
 ditto -c -k --sequesterRsrc --keepParent "$APP_DIR" "$ARCHIVE_STAGE/${ARCHIVE_PATH:t}"
 mv "$ARCHIVE_STAGE/${ARCHIVE_PATH:t}" "$ARCHIVE_PATH"

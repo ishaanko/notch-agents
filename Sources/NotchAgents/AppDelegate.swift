@@ -14,10 +14,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var notchController: NotchWindowController?
     private var settingsController: SettingsWindowController?
     private var onboardingController: FirstLaunchOnboardingController?
-    private var statusItem: NSStatusItem?
+    private var statusMenuController: StatusMenuController?
+    private var globalShortcutController: GlobalShortcutController?
 
     static func main() {
         AppMotionPolicy.normalizePreferences()
+        GlobalShortcutPreferences.registerDefaults()
         let app = NSApplication.shared
         let delegate = AppDelegate()
         app.delegate = delegate
@@ -45,7 +47,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             quitApplication: { NSApp.terminate(nil) }
         )
         notchController?.show()
-        configureStatusItem()
+        statusMenuController = StatusMenuController(
+            store: store,
+            openSettings: { [weak self] in self?.settingsController?.present() },
+            checkForUpdates: { [weak self] in
+                Task { await self?.updates.check() }
+                self?.settingsController?.present()
+            },
+            quitApplication: { NSApp.terminate(nil) }
+        )
+        globalShortcutController = GlobalShortcutController { [weak store] in
+            store?.toggleExpanded()
+        }
         presentOnboardingIfNeeded()
 
         let server = LocalEventServer { [weak self] payload, reply in
@@ -81,23 +94,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         processMonitor?.stop()
     }
 
-    private func configureStatusItem() {
-        let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-        item.button?.image = ThinkingOrbMenuBarIcon.makeImage(pointSize: 17)
-        item.button?.imagePosition = .imageOnly
-        item.button?.toolTip = "Notch Agents"
-        let menu = NSMenu()
-        menu.addItem(withTitle: "Open Settings…", action: #selector(openSettings), keyEquivalent: ",")
-        menu.addItem(withTitle: "Toggle Notch", action: #selector(toggleNotch), keyEquivalent: "n")
-        menu.addItem(.separator())
-        menu.addItem(withTitle: "Check for Updates…", action: #selector(checkForUpdates), keyEquivalent: "")
-        menu.addItem(.separator())
-        menu.addItem(withTitle: "Quit Notch Agents", action: #selector(quit), keyEquivalent: "q")
-        menu.items.forEach { $0.target = self }
-        item.menu = menu
-        statusItem = item
-    }
-
     private func presentOnboardingIfNeeded() {
         guard FirstLaunchOnboardingController.shouldPresent else { return }
         let controller = FirstLaunchOnboardingController(integrations: integrations) { [weak self] in
@@ -107,11 +103,4 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         controller.present()
     }
 
-    @objc private func toggleNotch() { store.isExpanded.toggle() }
-    @objc private func openSettings() { settingsController?.present() }
-    @objc private func checkForUpdates() {
-        Task { await updates.check() }
-        settingsController?.present()
-    }
-    @objc private func quit() { NSApp.terminate(nil) }
 }

@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- Added Control–Option–N as an optional global shortcut to show or hide the notch.
+- Added a menu bar session list with direct access to current work and pending requests.
+- Added previous-session and next-session controls to the expanded notch.
+- Added a waiting-request indicator to the expanded notch.
+- Added one build-and-run command and a Codex Run action for local development.
+
+### Changed
+
+- The Settings window now keeps its last size and position.
+- The Settings sidebar now uses the standard macOS window background.
+- The menu bar item now gives the current session and request count to VoiceOver.
+
 ## [0.1.1] - 2026-07-27
 
 ### Added

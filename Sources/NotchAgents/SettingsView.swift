@@ -127,6 +127,7 @@ struct SettingsView: View {
     @AppStorage("notchAgents.automaticUpdates") private var automaticUpdates = true
     @AppStorage("notchAgents.updateChannel") private var updateChannel = "Stable"
     @AppStorage("notchAgents.updateFrequency") private var updateFrequency = "Daily"
+    @AppStorage(GlobalShortcutPreferences.enabledKey) private var globalShortcutEnabled = true
     @AppStorage(UsageDisplayPreferences.pinnedWindowIDsKey)
     private var pinnedUsageWindowIDs = ""
 
@@ -139,7 +140,6 @@ struct SettingsView: View {
         }
         .navigationSplitViewStyle(.balanced)
         .frame(minWidth: 720, idealWidth: 820, minHeight: 500, idealHeight: 560)
-        .background(Color(nsColor: .windowBackgroundColor))
     }
 
     private var sidebar: some View {
@@ -230,6 +230,24 @@ struct SettingsView: View {
                 SettingsNote("Transitions stop as soon as they settle and are capped at 60 Hz.")
             }
             .animation(.easeOut(duration: 0.15), value: animationFPS)
+
+            SettingsGroup("Keyboard") {
+                Toggle(
+                    "Use the global shortcut",
+                    isOn: $globalShortcutEnabled
+                )
+
+                HStack {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("Show or hide the notch")
+                        Text("The shortcut works while another app is active.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    ShortcutBadge(GlobalShortcutPreferences.displayName)
+                }
+            }
         }
     }
 
@@ -1194,5 +1212,27 @@ private struct SettingsNote: View {
             .font(.caption)
             .foregroundStyle(.secondary)
             .fixedSize(horizontal: false, vertical: true)
+    }
+}
+
+private struct ShortcutBadge: View {
+    let label: String
+
+    init(_ label: String) {
+        self.label = label
+    }
+
+    var body: some View {
+        Text(label)
+            .font(.system(size: 11, weight: .medium, design: .rounded))
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 8)
+            .frame(height: 24)
+            .background(.quaternary, in: RoundedRectangle(cornerRadius: 6))
+            .overlay {
+                RoundedRectangle(cornerRadius: 6)
+                    .stroke(Color(nsColor: .separatorColor).opacity(0.7), lineWidth: 0.5)
+            }
+            .accessibilityLabel("Shortcut: \(label)")
     }
 }

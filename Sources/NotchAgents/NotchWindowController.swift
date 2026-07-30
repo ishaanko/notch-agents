@@ -449,6 +449,12 @@ final class SettingsWindowController: NSWindowController {
         window.title = "Notch Agents Settings"
         window.titlebarAppearsTransparent = true
         window.minSize = NSSize(width: 720, height: 500)
+        window.isReleasedWhenClosed = false
+        window.tabbingMode = .disallowed
+        if !window.setFrameUsingName("NotchAgents.SettingsWindow") {
+            window.center()
+        }
+        window.setFrameAutosaveName("NotchAgents.SettingsWindow")
         window.contentView = NSHostingView(
             rootView: SettingsView(
                 integrations: integrations,
@@ -463,7 +469,6 @@ final class SettingsWindowController: NSWindowController {
     required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
     func present() {
-        window?.center()
         window?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
     }
